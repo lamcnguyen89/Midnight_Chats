@@ -1,0 +1,24 @@
+[Unit]
+Description=Midnight Chats - Flask frontend for local Ollama
+Wants=network-online.target ollama.service avahi-daemon.service
+After=network-online.target ollama.service avahi-daemon.service
+
+[Service]
+Type=simple
+# Update the username and absolute paths if the checkout is moved.
+User=malneyugnfl
+WorkingDirectory=/home/malneyugnfl/SoftwareDev/Midnight_Chats
+Environment=PYTHONUNBUFFERED=1
+ExecStartPre=/usr/bin/mkdir -p /home/malneyugnfl/SoftwareDev/Midnight_Chats/instance /home/malneyugnfl/SoftwareDev/Midnight_Chats/logs
+# Run in the foreground so systemd owns the process. The config reads .env.
+ExecStart=/home/malneyugnfl/SoftwareDev/Midnight_Chats/.venv/bin/gunicorn --config /home/malneyugnfl/SoftwareDev/Midnight_Chats/web/gunicorn.conf.py --pid /home/malneyugnfl/SoftwareDev/Midnight_Chats/instance/gunicorn.pid main:create_app()
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+KillMode=mixed
+TimeoutStopSec=45
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

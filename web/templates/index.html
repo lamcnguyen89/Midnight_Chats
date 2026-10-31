@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Midnight Chats</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Ctext y='32' font-size='34'%3E☾%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</head>
+<body>
+  <button id="sidebar-scrim" class="scrim" aria-label="Close conversations" hidden></button>
+  <aside id="sidebar" aria-label="Conversations">
+    <a class="brand" href="/" aria-label="Midnight Chats home"><span class="moon">☾</span><span>midnight<span class="brand-subtitle">CHATS</span></span></a>
+    <button id="new-chat" class="new-chat"><span aria-hidden="true">＋</span> New conversation <span class="shortcut" aria-hidden="true">↗</span></button>
+    <div class="sidebar-label">SAVED CONVERSATIONS <span id="chat-count">0</span></div>
+    <nav id="saved-chats" aria-label="Saved conversations"><p class="sidebar-empty">A place for your conversations.<br>Save a chat to find it here.</p></nav>
+    <div class="sidebar-footer"><span class="local-icon" aria-hidden="true">⌘</span><div>Local by design<small>Stored on this device · Ollama</small></div></div>
+  </aside>
+  <main>
+    <header>
+      <button id="toggle-sidebar" class="icon-button mobile-only" aria-label="Toggle conversations" aria-expanded="false" aria-controls="sidebar">☰</button>
+      <div class="model-control"><label for="model">MODEL</label><select id="model" disabled><option value="">Connecting to Ollama…</option></select><button id="refresh-models" class="icon-button" aria-label="Refresh installed models" title="Refresh installed models">↻</button></div>
+      <div id="vram-card" class="memory-card" aria-label="GPU memory">
+        <div class="memory-heading"><span id="vram-label">VRAM</span><span id="vram-percent">—</span></div>
+        <div id="vram-usage" class="memory-usage">Loading…</div>
+        <div id="vram-meter" class="memory-meter" role="progressbar" aria-label="GPU memory usage" aria-valuemin="0" aria-valuemax="100" hidden><div id="vram-fill"></div></div>
+        <div id="vram-caption" class="memory-caption">Memory usage</div>
+      </div>
+      <div class="connection-controls">
+        <div class="connection"><span id="connection-dot" class="status-dot"></span><span id="connection-label">Connecting</span></div>
+        <button id="clear-model-memory" class="clear-memory-button" type="button" title="Unload all Ollama models from memory. Chats and downloaded model files are kept.">Clear model memory</button>
+      </div>
+    </header>
+    <div class="conversation-bar"><div><h1 id="conversation-title">New conversation</h1><p id="conversation-meta">Your next thought starts here.</p></div><div class="chat-actions"><button id="delete-chat" class="text-button danger" hidden>Delete</button><button id="save-chat" class="save-button" disabled>Save conversation <span aria-hidden="true">↗</span></button></div></div>
+    <section id="chat-scroll" aria-label="Chat messages" tabindex="0">
+      <div id="welcome" class="welcome"><div class="welcome-mark" aria-hidden="true">☾</div><p class="eyebrow">A LITTLE SPACE TO THINK</p><h2>Good conversations.<br>On your terms.</h2><p>Choose a local model and follow your curiosity.<br>Everything stays between you and your device.</p><div class="suggestions"><button data-prompt="Help me think through an idea. Ask me a question to get started."><span aria-hidden="true">✧</span> Explore an idea<span aria-hidden="true">↗</span></button><button data-prompt="Help me write something. Ask me what I have in mind."><span aria-hidden="true">✎</span> Find the right words<span aria-hidden="true">↗</span></button><button data-prompt="Help me solve a coding problem. Ask me what I am working on."><span aria-hidden="true">⌘</span> Work through a problem<span aria-hidden="true">↗</span></button></div><span class="welcome-note">NO ACCOUNTS. JUST CONVERSATION.</span></div>
+      <div id="messages" class="messages"></div>
+    </section>
+    <div class="composer-area"><div id="notice" role="status" hidden></div><form id="composer"><label class="sr-only" for="prompt">Message</label><textarea id="prompt" rows="1" placeholder="Message your local model…" maxlength="100000" required></textarea><div class="composer-bottom"><span id="composer-hint">Enter to send · Shift + Enter for a new line</span><button id="stop" class="send-button" type="button" aria-label="Stop generation" title="Stop generation" hidden>■</button><button id="send" class="send-button" type="submit" aria-label="Send message" title="Send message" disabled>↑</button></div></form><p class="footnote">Local models can make mistakes. Take a moment to check what matters.</p></div>
+  </main>
+  <dialog id="save-dialog"><form id="save-form"><div class="dialog-mark" aria-hidden="true">☾</div><h2 id="save-dialog-title">Keep this conversation</h2><p>Give it a name so you can pick up where you left off.</p><label for="conversation-name">Conversation name</label><input id="conversation-name" maxlength="120" placeholder="A name you’ll remember" required autocomplete="off"><p id="save-error" role="alert" hidden></p><div class="dialog-actions"><button id="cancel-save" type="button" class="text-button">Cancel</button><button id="confirm-save" type="submit" class="save-button">Save conversation</button></div></form></dialog>
+</body>
+</html>
