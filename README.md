@@ -6,6 +6,7 @@ No JavaScript build tools, external fonts, CDN assets, or cloud services are nee
 
 - Start a new conversation or continue one from the sidebar.
 - Select or refresh the models installed in Ollama.
+- Hide models from the picker with **Manage models**; visibility is saved across devices.
 - Live used/total GPU memory card, refreshed every five seconds.
 - Changing models unloads the previous model from memory before the switch completes.
 - Clear all loaded Ollama models with the button below the connection status.
@@ -26,6 +27,18 @@ Opening a saved conversation with a different model follows the same rule.
 The newly selected model loads when you send its first message; chat history
 and model files on disk are preserved. Other clients using the same Ollama
 service can load a model again independently.
+
+Use the gear button beside the model picker to open **Manage models**. Uncheck
+**Show in picker** for any model you want to hide, then click **Save changes**.
+Visibility is stored in the same SQLite database as conversations and applies
+to all browsers using this Midnight Chats server. Refresh the picker or reopen
+Manage models to see changes made on another device. Each full model name and
+tag has its own setting, and newly installed models are visible by default.
+Hidden models stay installed, and hiding the current model does not switch or
+unload it. Existing conversations can still use hidden models; new conversations
+choose from visible models. If all installed models are hidden, use the
+**Manage models** button in the notice to show them again. Visibility settings
+also survive temporarily removing and reinstalling a model.
 
 ## Project layout
 
@@ -350,6 +363,8 @@ Logging tests cover request correlation, privacy, streamed disconnects, error
 tracebacks, bounded rotation, and concurrent processes writing the same log.
 Model-unload tests verify zero keep-alive, confirmed memory release, timeout
 handling, unavailable models, and upstream failure responses.
+Model-visibility tests cover persistence, independent browser updates, exact
+model tags, validation, existing database upgrades, and hidden-model chat access.
 Installer tests cover fresh/repeated installation, configuration and data
 preservation, generated service paths, dependency failures, and manual-process
 conflicts using isolated package/systemd installation commands. Generated units

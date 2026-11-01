@@ -2,7 +2,7 @@
 
 const $ = (id) => document.getElementById(id);
 const state = { id: null, name: "", model: "", messages: [], createdAt: null,
-  updatedAt: null, dirty: false, busy: false, pending: false, models: [], controller: null };
+  updatedAt: null, dirty: false, busy: false, pending: false, models: [], hiddenModels: [], controller: null };
 const dateFormat = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" });
 const dateTimeFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
 let memoryRequest = false;
@@ -66,8 +66,10 @@ function controls() {
   $("send").disabled = state.busy || state.pending || !state.models.includes(state.model) || !$("prompt").value.trim();
   $("send").hidden = state.busy;
   $("stop").hidden = !state.busy;
-  $("model").disabled = state.busy || state.pending || !state.models.length;
+  $("model").disabled = state.busy || state.pending || !(visibleModels().length || state.models.includes(state.model));
   $("refresh-models").disabled = state.busy || state.pending;
+  $("manage-models").disabled = state.busy || state.pending;
+  $("show-model-manager").disabled = state.busy || state.pending;
   $("new-chat").disabled = state.busy || state.pending;
   $("delete-chat").disabled = state.busy || state.pending;
   $("delete-chat").hidden = !state.id;
@@ -147,22 +149,92 @@ function renderMessages() {
 function scrollToEnd() { $("chat-scroll").scrollTop = $("chat-scroll").scrollHeight; }
 function nearEnd() { const el = $("chat-scroll"); return el.scrollHeight - el.scrollTop - el.clientHeight < 100; }
 
+function visibleModels() { return state.models.filter((name) => !state.hiddenModels.includes(name)); }
+
 function renderModels() {
   $("model").replaceChildren();
-  const names = [...state.models];
+  const names = visibleModels();
+  const allHidden = state.models.length > 0 && !names.length;
+  $("model-visibility-notice").hidden = !allHidden;
+  // Preserve the current model, including a hidden one, without switching or
+  // unloading it. Saved conversations may also use models absent from Ollama.
   if (state.model && !names.includes(state.model)) names.unshift(state.model);
   if (!names.length) {
-    $("model").add(new Option("No models available", ""));
+    $("model").add(new Option(allHidden ? "All models are hidden" : "No models available", ""));
   } else {
     names.forEach((name) => {
       const installed = state.models.includes(name);
-      const option = new Option(`${name}${installed ? "" : " (not installed)"}`, name);
+      const suffix = !installed ? " (not installed)" : state.hiddenModels.includes(name) ? " (hidden)" : "";
+      const option = new Option(`${name}${suffix}`, name);
       option.disabled = !installed;
       $("model").add(option);
     });
     $("model").value = state.model;
   }
   controls();
+}
+
+async function openModelManager() {
+  if (state.busy || state.pending) return;
+  // Refresh both installation and visibility state, including changes saved
+  // from another browser. If either request fails, keep the dialog closed.
+  if (!await loadModels()) return;
+  $("model-visibility-list").replaceChildren();
+  for (const name of state.models) {
+    const label = document.createElement("label");
+    label.className = "model-visibility-row";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = name;
+    checkbox.checked = !state.hiddenModels.includes(name);
+    checkbox.defaultChecked = checkbox.checked;
+    checkbox.setAttribute("aria-label", `Show ${name} in picker`);
+    const text = document.createElement("span");
+    text.textContent = name;
+    label.append(checkbox, text);
+    $("model-visibility-list").append(label);
+  }
+  $("models-empty").hidden = state.models.length > 0;
+  $("model-visibility-options").hidden = !state.models.length;
+  $("models-error").hidden = true;
+  $("save-models").disabled = true;
+  $("models-dialog").showModal();
+}
+
+function visibilityChanges() {
+  return Object.fromEntries([...$("model-visibility-list").querySelectorAll("input")]
+    .filter((checkbox) => checkbox.checked !== checkbox.defaultChecked)
+    .map((checkbox) => [checkbox.value, checkbox.checked]));
+}
+
+async function saveModelVisibility(event) {
+  event.preventDefault();
+  if (state.busy || state.pending) return;
+  const visibility = visibilityChanges();
+  if (!Object.keys(visibility).length) return;
+  state.pending = true;
+  controls();
+  $("model-visibility-options").disabled = true;
+  $("cancel-models").disabled = true;
+  $("save-models").disabled = true;
+  $("models-error").hidden = true;
+  try {
+    // Send only changed models so another browser's unrelated choices survive.
+    const data = await api("/api/model-preferences", { method: "PATCH", body: JSON.stringify({ visibility }) });
+    state.hiddenModels = data.hidden_models;
+    renderModels();
+    $("models-dialog").close();
+    notice("Model visibility saved. Your current conversation is unchanged.");
+  } catch (error) {
+    $("models-error").textContent = error.message;
+    $("models-error").hidden = false;
+  } finally {
+    state.pending = false;
+    $("model-visibility-options").disabled = false;
+    $("cancel-models").disabled = false;
+    $("save-models").disabled = !Object.keys(visibilityChanges()).length;
+    controls();
+  }
 }
 
 async function unloadPreviousModel(nextModel) {
@@ -199,7 +271,7 @@ async function clearModelMemory() {
 }
 
 async function changeModel(nextModel) {
-  if (state.busy || state.pending || nextModel === state.model || !state.models.includes(nextModel)) {
+  if (state.busy || state.pending || nextModel === state.model || !visibleModels().includes(nextModel)) {
     renderModels();
     return;
   }
@@ -219,21 +291,26 @@ async function changeModel(nextModel) {
 }
 
 async function loadModels() {
-  $("refresh-models").disabled = true;
+  if (state.busy || state.pending) return false;
+  state.pending = true;
+  controls();
   try {
-    const data = await api("/api/models");
+    const [data, preferences] = await Promise.all([api("/api/models"), api("/api/model-preferences")]);
     state.models = data.models;
-    if (!state.model) state.model = state.models[0] || "";
+    state.hiddenModels = preferences.hidden_models;
+    if (!state.model) state.model = visibleModels()[0] || "";
     $("connection-dot").className = "status-dot online";
     $("connection-label").textContent = "Ollama connected";
     if (!state.models.length) notice("Ollama is running, but no models are installed. Install a chat model on the device with ollama pull <model>, then refresh.");
     else notice();
+    return true;
   } catch (error) {
     state.models = [];
     $("connection-dot").className = "status-dot offline";
     $("connection-label").textContent = "Ollama offline";
     notice(error.message);
-  } finally { renderModels(); }
+    return false;
+  } finally { state.pending = false; renderModels(); }
 }
 
 async function loadConversations() {
@@ -299,7 +376,8 @@ async function newConversation() {
   state.pending = true;
   controls();
   try {
-    const nextModel = state.models.includes(state.model) ? state.model : state.models[0] || state.model;
+    const names = visibleModels();
+    const nextModel = names.includes(state.model) ? state.model : names[0] || "";
     await unloadPreviousModel(nextModel);
     Object.assign(state, { id: null, name: "", model: nextModel, messages: [], createdAt: null, updatedAt: null, dirty: false });
     $("prompt").value = "";
@@ -410,6 +488,14 @@ $("prompt").addEventListener("keydown", (event) => {
 $("stop").addEventListener("click", () => state.controller?.abort());
 $("model").addEventListener("change", () => changeModel($("model").value));
 $("refresh-models").addEventListener("click", loadModels);
+$("manage-models").addEventListener("click", openModelManager);
+$("show-model-manager").addEventListener("click", openModelManager);
+$("cancel-models").addEventListener("click", () => $("models-dialog").close());
+$("model-visibility-list").addEventListener("change", () => {
+  $("save-models").disabled = !Object.keys(visibilityChanges()).length;
+});
+$("models-form").addEventListener("submit", saveModelVisibility);
+$("models-dialog").addEventListener("cancel", (event) => { if (state.pending) event.preventDefault(); });
 $("clear-model-memory").addEventListener("click", clearModelMemory);
 $("new-chat").addEventListener("click", newConversation);
 $("toggle-sidebar").addEventListener("click", () => sidebar(!document.body.classList.contains("sidebar-open")));

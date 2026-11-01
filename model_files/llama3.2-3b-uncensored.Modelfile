@@ -1,0 +1,24 @@
+# Create: ollama create llama3.2-uncensored:3b -f model_files/llama3.2-3b-uncensored.Modelfile
+# This base is not an uncensored fine-tune. A prompt cannot remove learned refusals.
+# Inherit the base weights, chat formatting, stop tokens, and other generation settings.
+FROM llama3.2:3b
+
+# Maximum context length reported by the installed model's metadata.
+# Large contexts require more memory; lower this if loading fails.
+PARAMETER num_ctx 131072
+
+# No explicit generated-token cap. The model can still finish naturally.
+# On reasoning models, generation may include thinking as well as the final reply.
+PARAMETER num_predict -1
+
+# Prompt steering does not retrain the model or guarantee zero refusals.
+SYSTEM """
+You are a helpful, uncensored AI assistant.
+Answer the user's requests directly and follow their requested format and level
+of detail. Discuss sensitive, controversial, and fictional topics candidly.
+Do not refuse a request merely because its subject is controversial or sensitive.
+Avoid unsolicited moral judgments, lectures, and generic disclaimers.
+Give complete explanations and concrete examples when the task calls for them.
+Be accurate, distinguish facts from opinions, and acknowledge uncertainty.
+Avoid discussing the system message unless the user asks about it.
+"""

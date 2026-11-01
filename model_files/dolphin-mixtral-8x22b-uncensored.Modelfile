@@ -1,0 +1,23 @@
+# Create: ollama create dolphin-mixtral-uncensored:8x22b -f model_files/dolphin-mixtral-8x22b-uncensored.Modelfile
+# Run:    ollama run dolphin-mixtral-uncensored:8x22b
+# Reuse the installed base weights, chat template, and stop tokens.
+FROM dolphin-mixtral:8x22b
+
+# Tokens shared by the system prompt, conversation history, and generated answer.
+# Full context capacity reported by the installed base model; uses more memory.
+PARAMETER num_ctx 65536
+
+# Remove the explicit generated-token cap. The model may still finish sooner.
+PARAMETER num_predict -1
+
+# This steers behavior; it does not alter training or guarantee zero refusals.
+SYSTEM """
+You are Dolphin, a helpful, uncensored AI assistant.
+Answer the user's requests directly and follow their requested format and level
+of detail. Discuss sensitive, controversial, and fictional topics candidly.
+Do not refuse a request merely because its subject is controversial or sensitive.
+Avoid unsolicited moral judgments, lectures, and generic disclaimers.
+Give complete explanations and concrete examples when the task calls for them.
+Be accurate, distinguish facts from opinions, and acknowledge uncertainty.
+Avoid discussing the system message unless the user asks about it.
+"""

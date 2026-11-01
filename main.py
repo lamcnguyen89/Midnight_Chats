@@ -66,6 +66,9 @@ def create_app(test_config=None):
             id TEXT PRIMARY KEY, name TEXT NOT NULL, model TEXT NOT NULL,
             messages TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
         )""")
+        db().execute("""CREATE TABLE IF NOT EXISTS model_preferences (
+            model TEXT PRIMARY KEY, hidden INTEGER NOT NULL CHECK (hidden IN (0, 1))
+        )""")
         db().commit()
     logger.info("database_ready")
 
@@ -124,6 +127,27 @@ def create_app(test_config=None):
     @app.get("/api/system/vram")
     def vram():
         return jsonify(memory_usage()), {"Cache-Control": "no-store"}
+
+    @app.route("/api/model-preferences", methods=["GET", "PATCH"])
+    def model_preferences():
+        if request.method == "PATCH":
+            visibility = payload().get("visibility")
+            if not isinstance(visibility, dict) or not visibility:
+                raise ValueError("Provide model visibility settings.")
+            # Validate the entire update before writing anything. Use exact names,
+            # including tags, so hiding one version does not hide another.
+            for model, visible in visibility.items():
+                if validate_model(model) != model or not isinstance(visible, bool):
+                    raise ValueError("Each model visibility setting must be true or false.")
+            with db():
+                for model, visible in visibility.items():
+                    if visible:
+                        db().execute("DELETE FROM model_preferences WHERE model = ?", (model,))
+                    else:
+                        db().execute("INSERT OR REPLACE INTO model_preferences (model, hidden) VALUES (?, 1)", (model,))
+        hidden = [row["model"] for row in db().execute(
+            "SELECT model FROM model_preferences WHERE hidden = 1 ORDER BY model")]
+        return jsonify(hidden_models=hidden), {"Cache-Control": "no-store"}
 
     @app.get("/api/models")
     def models():

@@ -109,7 +109,15 @@ dialog p { font-size: 12px; line-height: 1.7; color: var(--muted); }
 dialog label { display: block; margin: 24px 0 9px; font-size: 11px; color: #c1c9bd; }
 dialog input { width: 100%; padding: 12px; background: #151d22; border: 1px solid #4b5948; border-radius: 7px; color: var(--text); }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; }
-#save-error { color: #efb6a9; }
+#save-error, #models-error { color: #efb6a9; }
+.model-visibility-notice { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 18px 0; padding: 6px 12px; border: 1px solid var(--border); border-radius: 8px; color: var(--muted); font-size: 12px; }
+#model-visibility-options { border: 0; padding: 0; margin: 22px 0 0; min-width: 0; }
+#model-visibility-options legend { padding: 0; font-size: 11px; color: var(--accent); margin-bottom: 8px; }
+#model-visibility-list { max-height: 40dvh; overflow-y: auto; scrollbar-width: thin; }
+dialog .model-visibility-row { display: flex; align-items: center; gap: 12px; margin: 0; padding: 12px 4px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.model-visibility-row input { width: 17px; height: 17px; padding: 0; margin: 0; flex-shrink: 0; accent-color: var(--accent); }
+.model-visibility-row span { overflow-wrap: anywhere; line-height: 1.5; }
+@media (max-width: 430px) { .model-control { flex-wrap: wrap; } .model-control select { flex-basis: calc(100% - 34px); } #manage-models { font-size: 16px; } }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 .mobile-only { display: none; }
 .scrim { position: fixed; inset: 0; background: #0009; z-index: 4; }
