@@ -179,9 +179,11 @@ sudo systemctl enable --now avahi-daemon
 Client computers must support mDNS, and the LAN must allow multicast. Use
 `http://<thor-ip>:<port>` if a client cannot resolve the alias. Always include the
 configured port and use HTTP. `127.0.0.1` and `localhost` on another computer
-refer to that computer itself. The Thor's IP may change with DHCP; restart the
-app after an address change to publish the new IP. With multiple network
-interfaces, set `MIDNIGHT_ADDRESS` to the Thor's desired LAN IPv4 address.
+refer to that computer itself. The Thor's IP may change with DHCP; the app
+rechecks the address every five seconds and republishes the alias when it
+changes. This also recovers when Wi-Fi becomes ready after the app starts at
+boot. If Avahi disconnects, the publisher retries automatically. With multiple
+network interfaces, set `MIDNIGHT_ADDRESS` to the Thor's desired LAN IPv4 address.
 
 This is a single-user application without authentication: everyone who can
 reach it shares the saved chat library. Keep it on a trusted private network,

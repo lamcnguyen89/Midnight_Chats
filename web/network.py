@@ -5,6 +5,7 @@ import logging
 import shutil
 import socket
 import subprocess
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -34,30 +35,64 @@ def lan_address(host, explicit_address=""):
 
 
 class AliasPublisher:
+    refresh_interval = 5
+
     def __init__(self, settings):
         self.settings = settings
         self.process = None
+        self.address = None
+        self._stopped = threading.Event()
+        self._thread = None
 
     def start(self):
-        if not self.settings.alias or self.process is not None:
+        if not self.settings.alias or self._thread is not None:
             return
         executable = shutil.which("avahi-publish-address")
         if not executable:
             logger.warning("MIDNIGHT_ALIAS requires avahi-utils and a running avahi-daemon. Use the LAN IP until Avahi is available.")
             return
         try:
-            address = lan_address(self.settings.host, self.settings.address)
-            self.process = subprocess.Popen(
-                [executable, "--no-reverse", self.settings.alias, address], stdout=subprocess.DEVNULL,
-            )
+            self._refresh(executable)
+        except OSError:
+            # Wi-Fi and Avahi can still be starting at boot. Retry without
+            # taking down the HTTP server or permanently losing the alias.
+            logger.warning("alias_publication_deferred", exc_info=True)
         except Exception:
             logger.exception("alias_publication_failed", extra={"fields": {"alias": self.settings.alias}})
             raise
+        self._stopped.clear()
+        self._thread = threading.Thread(target=self._monitor, args=(executable,),
+                                        name="alias-publisher", daemon=True)
+        self._thread.start()
+
+    def _refresh(self, executable):
+        address = lan_address(self.settings.host, self.settings.address)
+        if self.process is not None and self.process.poll() is None and address == self.address:
+            return
+        self._stop_process()
+        self.process = subprocess.Popen(
+            [executable, "--no-reverse", self.settings.alias, address], stdout=subprocess.DEVNULL,
+        )
+        self.address = address
         logger.info("alias_publisher_started", extra={"fields": {
             "alias": self.settings.alias, "address": address, "port": self.settings.port,
             "publisher_pid": self.process.pid}})
 
+    def _monitor(self, executable):
+        while not self._stopped.wait(self.refresh_interval):
+            try:
+                self._refresh(executable)
+            except Exception:
+                logger.exception("alias_publication_retry_failed", extra={"fields": {"alias": self.settings.alias}})
+
     def stop(self):
+        self._stopped.set()
+        if self._thread is not None:
+            self._thread.join()
+            self._thread = None
+        self._stop_process()
+
+    def _stop_process(self):
         if self.process is None:
             return
         return_code = self.process.poll()
@@ -74,3 +109,4 @@ class AliasPublisher:
                 "alias": self.settings.alias, "return_code": return_code}})
         logger.info("alias_publisher_stopped", extra={"fields": {"alias": self.settings.alias}})
         self.process = None
+        self.address = None

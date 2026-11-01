@@ -66,6 +66,9 @@ class ConfigTests(unittest.TestCase):
 
 class AliasTests(unittest.TestCase):
     def setUp(self):
+        thread = patch("web.network.threading.Thread")
+        thread.start()
+        self.addCleanup(thread.stop)
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         environment = patch.dict(os.environ, {"LOG_DIR": self.directory.name})
@@ -125,6 +128,55 @@ class AliasTests(unittest.TestCase):
             publisher.start()
         self.assertIn("avahi-utils", logs.output[0])
         self.assertIsNone(publisher.process)
+
+    @patch("web.network.subprocess.Popen")
+    @patch("web.network.shutil.which", return_value="/usr/bin/avahi-publish-address")
+    @patch("web.network.lan_address", side_effect=["192.168.55.1", "192.168.1.81", "192.168.1.81"])
+    def test_monitor_replaces_boot_address_when_wifi_is_ready(self, address, which, popen):
+        first, second = Mock(), Mock()
+        first.poll.return_value = second.poll.return_value = None
+        popen.side_effect = [first, second]
+        publisher = AliasPublisher(ServerConfig("0.0.0.0", 5001, "chat.local", ""))
+        publisher.start()
+        with patch.object(publisher._stopped, "wait", side_effect=[False, False, True]):
+            publisher._monitor(which.return_value)
+        self.assertEqual(popen.call_count, 2)
+        self.assertEqual(popen.call_args.args[0][-1], "192.168.1.81")
+        first.terminate.assert_called_once()
+        first.wait.assert_called_once_with(timeout=5)
+        self.assertEqual(publisher.address, "192.168.1.81")
+        publisher.stop()
+        second.terminate.assert_called_once()
+
+    @patch("web.network.subprocess.Popen")
+    @patch("web.network.shutil.which", return_value="/usr/bin/avahi-publish-address")
+    @patch("web.network.lan_address", side_effect=[OSError("Network unreachable"),
+                                                  OSError("Network unreachable"), "192.168.1.81"])
+    def test_monitor_recovers_when_no_route_exists_at_startup(self, address, which, popen):
+        publisher = AliasPublisher(ServerConfig("0.0.0.0", 5001, "chat.local", ""))
+        with self.assertLogs("web.network", level="WARNING"):
+            publisher.start()
+            self.assertIsNone(publisher.process)
+            with patch.object(publisher._stopped, "wait", side_effect=[False, False, True]):
+                publisher._monitor(which.return_value)
+        popen.assert_called_once()
+        self.assertEqual(publisher.address, "192.168.1.81")
+        publisher.stop()
+
+    @patch("web.network.subprocess.Popen")
+    @patch("web.network.shutil.which", return_value="/usr/bin/avahi-publish-address")
+    def test_monitor_restarts_publisher_after_avahi_disconnects(self, which, popen):
+        first, second = Mock(), Mock()
+        popen.side_effect = [first, second]
+        publisher = AliasPublisher(ServerConfig("0.0.0.0", 5001, "chat.local", "192.168.1.81"))
+        publisher.start()
+        first.poll.return_value = 1
+        with self.assertLogs("web.network", level="ERROR"):
+            with patch.object(publisher._stopped, "wait", side_effect=[False, True]):
+                publisher._monitor(which.return_value)
+        self.assertEqual(popen.call_count, 2)
+        self.assertIs(publisher.process, second)
+        publisher.stop()
 
     def test_unresponsive_publisher_is_reaped(self):
         publisher = AliasPublisher(ServerConfig("0.0.0.0", 5050, "chat.local", ""))
