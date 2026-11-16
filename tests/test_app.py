@@ -28,7 +28,7 @@ class AppTests(unittest.TestCase):
         response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"Midnight Chats", response.data)
-        for asset in ("/static/app.js", "/static/style.css"):
+        for asset in ("/static/app.js", "/static/style.css", "/static/favicon.ico"):
             with self.client.get(asset) as response:
                 self.assertEqual(response.status_code, 200)
 
