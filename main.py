@@ -171,6 +171,27 @@ def create_app(test_config=None):
             logger.error("ollama_models_invalid_response", extra={"fields": {"error_type": type(error).__name__}})
             return jsonify(error="Ollama returned an invalid model list."), 502
 
+    @app.delete("/api/models")
+    def delete_model():
+        model = validate_model(payload().get("model"))
+        logger.info("ollama_model_delete_started", extra={"fields": {"model": model}})
+        try:
+            with requests.delete(f"{app.config['OLLAMA_URL']}/api/delete",
+                                 json={"model": model}, timeout=(5, app.config["OLLAMA_TIMEOUT"])) as response:
+                if response.status_code != 200:
+                    logger.warning("ollama_model_delete_http_error", extra={"fields": {
+                        "model": model, "status": response.status_code}})
+                    return jsonify(error=upstream_error(response)), 404 if response.status_code == 404 else 502
+            logger.info("ollama_model_deleted", extra={"fields": {"model": model}})
+            return jsonify(model=model, deleted=True)
+        except requests.Timeout:
+            logger.warning("ollama_model_delete_timeout", extra={"fields": {"model": model}})
+            return jsonify(error="Ollama took too long to delete the model. Refresh the model list before trying again."), 504
+        except requests.RequestException as error:
+            logger.error("ollama_model_delete_connection_failed", extra={"fields": {
+                "model": model, "error_type": type(error).__name__}})
+            return jsonify(error="Cannot reach Ollama to delete the model. Check that it is running, then try again."), 503
+
     @app.post("/api/models/unload")
     def unload_model():
         return unload_one_model(validate_model(payload().get("model")))

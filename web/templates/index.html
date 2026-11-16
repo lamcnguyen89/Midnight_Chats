@@ -45,10 +45,11 @@
   <dialog id="models-dialog" aria-labelledby="models-dialog-title" aria-describedby="models-description">
     <form id="models-form">
       <h2 id="models-dialog-title">Manage models</h2>
-      <p id="models-description">Choose which models appear in the picker. These settings apply to everyone using this Midnight Chats server. Hidden models stay installed and existing chats can still use them.</p>
+      <p id="models-description">Choose which models appear in the picker. These settings apply to everyone using this Midnight Chats server. Hidden models stay installed and existing chats can still use them. Use the trash button to delete an installed model from Ollama after confirmation. Deletions take effect immediately; saved conversations are kept.</p>
       <fieldset id="model-visibility-options"><legend>Show in picker</legend><div id="model-visibility-list"></div></fieldset>
       <p id="models-empty" hidden>No models are installed. Install a model in Ollama, then refresh the picker.</p>
       <p id="models-error" role="alert" hidden></p>
+      <p id="models-status" role="status"></p>
       <div class="dialog-actions"><button id="cancel-models" type="button" class="text-button">Cancel</button><button id="save-models" type="submit" class="save-button" disabled>Save changes</button></div>
     </form>
   </dialog>

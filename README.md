@@ -40,6 +40,12 @@ choose from visible models. If all installed models are hidden, use the
 **Manage models** button in the notice to show them again. Visibility settings
 also survive temporarily removing and reinstalling a model.
 
+To uninstall a model, click its trash button in **Manage models** and confirm
+the deletion. This immediately deletes that model from the connected Ollama
+service, including for other clients; **Cancel** only discards visibility edits.
+Saved conversations are kept. If you delete the current model, choose another
+installed model to continue chatting, or reinstall the deleted model in Ollama.
+
 ## Project layout
 
 ```text

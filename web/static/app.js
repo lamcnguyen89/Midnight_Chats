@@ -181,8 +181,9 @@ async function openModelManager() {
   if (!await loadModels()) return;
   $("model-visibility-list").replaceChildren();
   for (const name of state.models) {
+    const row = document.createElement("div");
+    row.className = "model-visibility-row";
     const label = document.createElement("label");
-    label.className = "model-visibility-row";
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
     checkbox.value = name;
@@ -192,13 +193,62 @@ async function openModelManager() {
     const text = document.createElement("span");
     text.textContent = name;
     label.append(checkbox, text);
-    $("model-visibility-list").append(label);
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "icon-button delete-model";
+    deleteButton.setAttribute("aria-label", `Delete ${name}`);
+    deleteButton.title = `Delete ${name}`;
+    deleteButton.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg>';
+    deleteButton.addEventListener("click", () => deleteModel(name, row, deleteButton));
+    row.append(label, deleteButton);
+    $("model-visibility-list").append(row);
   }
   $("models-empty").hidden = state.models.length > 0;
   $("model-visibility-options").hidden = !state.models.length;
   $("models-error").hidden = true;
+  $("models-status").textContent = "";
   $("save-models").disabled = true;
   $("models-dialog").showModal();
+}
+
+async function deleteModel(name, row, button) {
+  if (state.busy || state.pending || !window.confirm(
+    `Are you sure you want to delete “${name}”? This removes the installed model from Ollama for everyone using it. You will need to reinstall it to use it again. Saved conversations will be kept.`
+  )) return;
+  state.pending = true;
+  controls();
+  $("model-visibility-options").disabled = true;
+  $("cancel-models").disabled = true;
+  $("save-models").disabled = true;
+  $("models-error").hidden = true;
+  $("models-status").textContent = `Deleting ${name}…`;
+  button.setAttribute("aria-busy", "true");
+  let deleted = false;
+  try {
+    const result = await api("/api/models", { method: "DELETE", body: JSON.stringify({ model: name }) });
+    if (result.deleted !== true) throw new Error("Could not confirm that the model was deleted. Refresh the model list before trying again.");
+    state.models = state.models.filter((model) => model !== name);
+    row.remove();
+    deleted = true;
+    $("models-empty").hidden = state.models.length > 0;
+    $("model-visibility-options").hidden = !state.models.length;
+    const message = `Deleted ${name}.${state.model === name ? " Choose an installed model to continue chatting." : ""}`;
+    $("models-status").textContent = message;
+    notice(message);
+  } catch (error) {
+    $("models-status").textContent = "";
+    $("models-error").textContent = error.message;
+    $("models-error").hidden = false;
+  } finally {
+    state.pending = false;
+    $("model-visibility-options").disabled = false;
+    $("cancel-models").disabled = false;
+    $("save-models").disabled = !Object.keys(visibilityChanges()).length;
+    button.removeAttribute("aria-busy");
+    renderModels();
+    if (deleted) ($("model-visibility-list").querySelector(".delete-model") || $("cancel-models")).focus();
+    refreshMemory();
+  }
 }
 
 function visibilityChanges() {
